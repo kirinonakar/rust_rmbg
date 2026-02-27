@@ -1,9 +1,0 @@
-    Checking rust_rmbg v0.1.0 (D:\ASUNA\Tools\Visual_studio\rust_rmbg)
-error[E0599]: no method named `set_icon` found for reference `&Window` in the current scope
-  --> src\main.rs:75:21
-   |
-75 |         ui.window().set_icon(icon);
-   |                     ^^^^^^^^ method not found in `&Window`
-
-For more information about this error, try `rustc --explain E0599`.
-error: could not compile `rust_rmbg` (bin "rust_rmbg") due to 1 previous error
