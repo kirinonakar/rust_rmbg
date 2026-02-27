@@ -228,7 +228,7 @@ fn process_image(path: PathBuf, session: Arc<std::sync::Mutex<Session>>, ui_weak
     // 4. Postprocess
     let (_shape, mask_data) = outputs[0].try_extract_tensor::<f32>().unwrap();
     
-    // Min-Max Scaling (RMBG-2.0 officially uses Min-Max normalize on prediction)
+    // Min-Max Scaling
     let mut mask_min = f32::MAX;
     let mut mask_max = f32::MIN;
     for &v in mask_data {
