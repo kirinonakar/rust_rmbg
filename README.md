@@ -6,7 +6,7 @@ A high-performance image background removal tool written in Rust, featuring a mo
 
 - **Hardware Acceleration**: Leverages GPU acceleration (CUDA and DirectML) to perform fast local background removal.
 - **Drag & Drop Support**: Seamlessly select images by dragging and dropping them directly onto the application window (custom OLE Drag'n'Drop hooking on Windows).
-- **High Quality Results**: Uses advanced RMBG models (such as RMBG-2.0, utilizing `model_fp16.onnx`) to accurately mask out image backgrounds.
+- **High Quality Results**: Uses advanced RMBG models (such as RMBG-2.0  or InSPyReNet, utilizing `model_fp16.onnx`) to accurately mask out image backgrounds.
 - **Modern GUI**: A stylish and fast user interface built entirely with Slint.
 - **Offline Processing**: Everything runs locally on your machine—no internet connection or cloud API keys required.
 
@@ -15,7 +15,10 @@ A high-performance image background removal tool written in Rust, featuring a mo
 Before building and running the application, ensure you have the following requirements:
 
 - **Rust toolchain** (1.75+ or later Recommended)
-- **ONNX model**: You need the ONNX background removal model file (e.g., `model_fp16.onnx` from RMBG-2.0) placed in the same directory as the executable.
+- **ONNX model**: You need the ONNX background removal model file (e.g., `model_fp16.onnx` from RMBG-2.0 or InSPyReNet) placed in the same directory as the executable.
+
+### 📥 Download
+You can download the latest version from the [Releases Page](https://github.com/kirinonakar/rust_rmbg/releases).
 
 ## Installation & Build
 
