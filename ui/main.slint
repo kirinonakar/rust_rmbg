@@ -1,0 +1,41 @@
+import { VerticalBox, Button } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    width: 600px;
+    height: 600px;
+    title: "Rust RMBG-2.0";
+    icon: @image-url("../app.ico");
+
+    callback files_dropped(string);
+    in property <string> status_text: "Drag and Drop PNG here";
+    in property <image> preview_image;
+    in property <bool> has_image: false;
+
+    // A drop area to capture file drops natively, if supported by the Slint backend.
+    // In many winit backends, dropping a file on the window will issue a WindowEvent.
+    // We handle it in Rust.
+
+    VerticalBox {
+        alignment: space-around;
+
+        Text {
+            text: root.status_text;
+            horizontal-alignment: center;
+            font-size: 16px;
+        }
+
+        if (root.has_image) : Image {
+            source: root.preview_image;
+            width: 500px;
+            height: 500px;
+            image-fit: contain;
+        }
+
+        Button {
+            text: "Select Image (Fallback)";
+            clicked => {
+                root.files-dropped("");
+            }
+        }
+    }
+}

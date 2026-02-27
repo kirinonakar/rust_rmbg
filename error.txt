@@ -1,0 +1,19 @@
+warning: unused manifest key: build
+help: build is a valid .cargo/config.toml key
+   Compiling ort-sys v2.0.0-rc.11
+    Checking ort v2.0.0-rc.11
+    Checking rust_rmbg v0.1.0 (D:\ASUNA\Tools\Visual_studio\rust_rmbg)
+error[E0433]: failed to resolve: could not find `CUDAExecutionProvider` in `ort`
+  --> src\main.rs:19:18
+   |
+19 |             ort::CUDAExecutionProvider::default().build(),
+   |                  ^^^^^^^^^^^^^^^^^^^^^ could not find `CUDAExecutionProvider` in `ort`
+
+error[E0433]: failed to resolve: could not find `DirectMLExecutionProvider` in `ort`
+  --> src\main.rs:20:18
+   |
+20 |             ort::DirectMLExecutionProvider::default().build(),
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^ could not find `DirectMLExecutionProvider` in `ort`
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `rust_rmbg` (bin "rust_rmbg") due to 2 previous errors

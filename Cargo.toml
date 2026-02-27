@@ -1,0 +1,20 @@
+[package]
+name = "rust_rmbg"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+slint = { version = "1.15.1", features = ["raw-window-handle-06"] }
+image = "0.24.9"
+ndarray = "0.15.6"
+ort = { version = "2.0.0-rc.5", features = ["cuda", "directml"] }
+rfd = "0.14.1"
+imageproc = "0.23.0"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Ole"] }
+raw-window-handle = "0.6"
+
+[build-dependencies]
+slint-build = "1.15.1"
+winres = "0.1.12"
+winresource = "0.1"

@@ -1,0 +1,54 @@
+warning: unused manifest key: build
+help: build is a valid .cargo/config.toml key
+    Checking rust_rmbg v0.1.0 (D:\ASUNA\Tools\Visual_studio\rust_rmbg)
+error[E0283]: type annotations needed
+  --> src\main.rs:47:57
+   |
+47 | ...                   ui.invoke_files_dropped(slint::SharedString::from(path.as_ref()));
+   |                                               ^^^^^^^^^^^^^^^^^^^ cannot infer type for reference `&_`
+   |
+   = note: multiple `impl`s satisfying `slint::SharedString: From<&_>` found in the `i_slint_core` crate:
+           - impl From<&std::string::String> for slint::SharedString;
+           - impl From<&str> for slint::SharedString;
+
+error[E0283]: type annotations needed
+  --> src\main.rs:47:88
+   |
+47 | ...                   ui.invoke_files_dropped(slint::SharedString::from(path.as_ref()));
+   |                                                                              ^^^^^^
+   |
+   = note: multiple `impl`s satisfying `std::string::String: AsRef<_>` found in the following crates: `alloc`, `std`:
+           - impl AsRef<OsStr> for std::string::String;
+           - impl AsRef<[u8]> for std::string::String;
+           - impl AsRef<std::path::Path> for std::string::String;
+           - impl AsRef<str> for std::string::String;
+help: try using a fully qualified path to specify the expected types
+   |
+47 -                                 ui.invoke_files_dropped(slint::SharedString::from(path.as_ref()));
+47 +                                 ui.invoke_files_dropped(slint::SharedString::from(<std::string::String as AsRef<T>>::as_ref(&path)));
+   |
+
+error[E0599]: the method `window_handle` exists for reference `&Window`, but its trait bounds were not satisfied
+   --> src\main.rs:138:49
+    |
+138 |                 let window_handle = ui.window().window_handle();
+    |                                                 ^^^^^^^^^^^^^ method cannot be called on `&Window` due to unsatisfied trait bounds
+    |
+   ::: C:\Users\totor\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\i-slint-core-1.15.1\api.rs:449:1
+    |
+449 | pub struct Window(pub(crate) WindowInner);
+    | ----------------- doesn't satisfy `Window: HasWindowHandle`
+    |
+    = note: the following trait bounds were not satisfied:
+            `Window: HasWindowHandle`
+            which is required by `&Window: HasWindowHandle`
+
+error[E0282]: type annotations needed
+   --> src\main.rs:140:56
+    |
+140 |                     if let RawWindowHandle::Win32(h) = handle.as_raw() {
+    |                                                        ^^^^^^ cannot infer type
+
+Some errors have detailed explanations: E0282, E0283, E0599.
+For more information about an error, try `rustc --explain E0282`.
+error: could not compile `rust_rmbg` (bin "rust_rmbg") due to 4 previous errors
