@@ -4455,6 +4455,8 @@ dependencies = [
 name = "rust_rmbg"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "byteorder",
  "image 0.25.9",
  "imageproc",
  "ndarray 0.15.6",

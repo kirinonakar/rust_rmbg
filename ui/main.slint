@@ -1,4 +1,4 @@
-import { VerticalBox, Button } from "std-widgets.slint";
+import { VerticalBox, Button, CheckBox, ProgressIndicator } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     width: 600px;
@@ -10,29 +10,46 @@ export component MainWindow inherits Window {
     in property <string> status_text: "Drag and Drop PNG here";
     in property <image> preview_image;
     in property <bool> has_image: false;
+    in-out property <bool> save_32bit_bmp: false;
+    
+    in property <bool> is_processing: false;
+    in property <float> progress: 0.0;
 
     // A drop area to capture file drops natively, if supported by the Slint backend.
     // In many winit backends, dropping a file on the window will issue a WindowEvent.
     // We handle it in Rust.
 
     VerticalBox {
-        alignment: space-around;
-
         Text {
             text: root.status_text;
             horizontal-alignment: center;
             font-size: 16px;
         }
 
+        if (root.is_processing) : ProgressIndicator {
+            progress: root.progress;
+        }
+
         if (root.has_image) : Image {
             source: root.preview_image;
-            width: 500px;
-            height: 500px;
+            width: 400px;
+            height: 400px;
             image-fit: contain;
         }
 
+        Rectangle {} // Spacer
+
+        CheckBox {
+            text: "Add 32bit bmp with alpha channel";
+            checked: root.save_32bit_bmp;
+            toggled => {
+                root.save_32bit_bmp = self.checked;
+            }
+        }
+
         Button {
-            text: "Select Image (Fallback)";
+            text: "Select Image";
+            enabled: !root.is_processing;
             clicked => {
                 root.files-dropped("");
             }

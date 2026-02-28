@@ -13,6 +13,8 @@ rfd = "0.14.1"
 imageproc = "0.23.0"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Ole"] }
 raw-window-handle = "0.6"
+byteorder = "1.5.0"
+anyhow = "1.0.102"
 
 [build-dependencies]
 slint-build = "1.15.1"
