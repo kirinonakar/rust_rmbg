@@ -5,8 +5,10 @@ A high-performance image background removal tool written in Rust, featuring a mo
 ## Features
 
 - **Hardware Acceleration**: Leverages GPU acceleration (CUDA and DirectML) to perform fast local background removal.
+- **Batch Processing**: Supports dragging and dropping multiple images at once, processing them sequentially with a real-time progress bar.
+- **32-bit BMP Support**: Option to export results as 32-bit BMP files with an alpha channel, ideal for legacy software compatibility.
 - **Drag & Drop Support**: Seamlessly select images by dragging and dropping them directly onto the application window (custom OLE Drag'n'Drop hooking on Windows).
-- **High Quality Results**: Uses advanced RMBG models (such as RMBG-2.0  or InSPyReNet, utilizing `model_fp16.onnx`) to accurately mask out image backgrounds.
+- **High Quality Results**: Uses advanced RMBG models (such as RMBG-2.0 or InSPyReNet, utilizing `model_fp16.onnx`) to accurately mask out image backgrounds.
 - **Modern GUI**: A stylish and fast user interface built entirely with Slint.
 - **Offline Processing**: Everything runs locally on your machine—no internet connection or cloud API keys required.
 
@@ -38,9 +40,12 @@ cargo run --release
 ## Usage
 
 1. **Launch the application**: Run the `rust_rmbg` executable.
-2. **Select an image**: Drag and drop any `.png`, `.jpg`, or `.jpeg` file straight into the main window, or use the file picker dialog to choose an image.
-3. **Processing**: The application will automatically process the image and extract the subject, replacing the background with transparency.
-4. **Save**: The output image with the removed background will automatically be saved beside the original file with the suffix `_rmbg.png` (e.g., `image_rmbg.png`).
+2. **Configure Options**: Toggle the **"Add 32bit bmp with alpha channel"** checkbox if you need BMP output in addition to PNG.
+3. **Select images**: Drag and drop one or multiple `.png`, `.jpg`, `.jpeg`, or `.bmp` files into the main window, or use the **"Select Image"** button.
+4. **Processing**: The application will process files sequentially. A progress bar will indicate the current status and overall batch progress.
+5. **Save**: Resulting images are saved automatically in the same folder as the original files:
+   - Always saves as `[filename]_rmbg.png` (with transparency).
+   - If enabled, also saves as `[filename]_rmbg.bmp` (32-bit with alpha channel).
 
 ## Technologies Used
 
