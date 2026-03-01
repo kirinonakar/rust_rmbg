@@ -20,6 +20,7 @@ A high-performance image background removal tool written in Rust, featuring a mo
 
 Before building and running the application, ensure you have the following requirements:
 
+- **OS**: **Windows 10 or later** (Required for DirectML hardware acceleration)
 - **Rust toolchain** (1.75+ or later Recommended)
 - **ONNX models**: Place your `.onnx` model files in the same directory as the executable. 
     - Supports **RMBG-2.0**, **InSPyReNet**, and **BEN2** models.
