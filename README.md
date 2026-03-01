@@ -26,6 +26,12 @@ Before building and running the application, ensure you have the following requi
     - Supports **RMBG-2.0**, **InSPyReNet**, and **BEN2** models.
     - If using **BEN2**, ensure the filename contains "ben2" (case-insensitive, e.g., `BEN2_Base.onnx`) to trigger the correct normalization.
 
+> [!IMPORTANT]
+> **Memory Usage Note:**
+> - Models larger than **1GB** require at least **16GB of system RAM**.
+> - For systems with lower specifications, it is recommended to use smaller models **under 500MB** (such as `fp16` variants) to avoid memory issues.
+
+
 ### 📥 Download
 You can download the latest version from the [Releases Page](https://github.com/kirinonakar/rust_rmbg/releases).
 
