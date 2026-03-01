@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 use std::fs::File;
 use std::io::{Write, BufWriter};
 use byteorder::{WriteBytesExt, LittleEndian};
+use half::f16;
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, GetLastError};
@@ -93,25 +94,90 @@ fn main() -> Result<(), slint::PlatformError> {
         ])
         .commit();
 
-    let model_path = "model_fp16.onnx";
-    let session_opt = match Session::builder()
-        .unwrap()
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .unwrap()
-        .with_intra_threads(4)
-        .unwrap()
-        .commit_from_file(model_path)
-    {
-        Ok(s) => Some(Arc::new(std::sync::Mutex::new(s))),
-        Err(e) => {
-            eprintln!("Failed to load ONNX model: {:?}", e);
-            ui.set_status_text(slint::SharedString::from(format!("Error loading model: {}", e)));
-            None
+    // Find onnx models in current directory
+    let mut onnx_models = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(".") {
+        for entry in entries.flatten() {
+            if let Some(ext) = entry.path().extension() {
+                if ext == "onnx" {
+                    if let Some(name) = entry.path().file_name() {
+                        onnx_models.push(name.to_string_lossy().into_owned());
+                    }
+                }
+            }
         }
-    };
+    }
+    onnx_models.sort();
+
+    let model_entries: Vec<slint::SharedString> = onnx_models.iter().map(|s| slint::SharedString::from(s)).collect();
+    let initial_model = onnx_models.first().cloned().unwrap_or_default();
+    
+    ui.set_model_entries(slint::ModelRc::new(slint::VecModel::from(model_entries)));
+    ui.set_active_model(initial_model.clone().into());
+
+    let current_session = Arc::new(std::sync::Mutex::new(None::<Session>));
+    
+    // Load initial model if exists
+    if !initial_model.is_empty() {
+        match Session::builder()
+            .unwrap()
+            .with_optimization_level(GraphOptimizationLevel::Level3)
+            .unwrap()
+            .with_intra_threads(4)
+            .unwrap()
+            .commit_from_file(&initial_model)
+        {
+            Ok(s) => {
+                *current_session.lock().unwrap() = Some(s);
+                ui.set_status_text("Model loaded".into());
+            }
+            Err(e) => {
+                ui.set_status_text(format!("Failed to load model: {}", e).into());
+            }
+        }
+    } else {
+        ui.set_status_text("No .onnx models found in current directory".into());
+    }
+
+    // Handle model selection changes
+    let ui_weak_model = ui_weak.clone();
+    let session_model = current_session.clone();
+    ui.on_model_selected(move |model_name| {
+        if let Some(ui) = ui_weak_model.upgrade() {
+            let session_clone = session_model.clone();
+            let ui_weak_for_thread = ui_weak_model.clone();
+            let model_name_str = model_name.to_string();
+            
+            ui.set_status_text(format!("Loading model: {}...", model_name_str).into());
+            
+            std::thread::spawn(move || {
+                let res = Session::builder()
+                    .unwrap()
+                    .with_optimization_level(GraphOptimizationLevel::Level3)
+                    .unwrap()
+                    .with_intra_threads(4)
+                    .unwrap()
+                    .commit_from_file(&model_name_str);
+                
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak_for_thread.upgrade() {
+                        match res {
+                            Ok(s) => {
+                                *session_clone.lock().unwrap() = Some(s);
+                                ui.set_status_text(format!("Model {} loaded", model_name_str).into());
+                            }
+                            Err(e) => {
+                                ui.set_status_text(format!("Error loading {}: {}", model_name_str, e).into());
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    });
 
     // Slint Window event handling for Drop
-    let session_clone = session_opt.clone();
+    let session_clone = current_session.clone();
     // Let's print out what events exist by letting compiler fail if Drop is wrong
     // Slint's Window does not have an on_window_event. It has on_winit_window_event if the winit feature is enabled.
     // In slint 1.15, to handle drop we either need winit or try something else.
@@ -127,49 +193,54 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let ui_weak_clone = ui_weak.clone();
     ui.on_files_dropped(move |path| {
-        let path_str = path.to_string();
-        let ui = ui_weak_clone.unwrap();
-        if ui.get_is_processing() {
-            return;
-        }
-        let save_32bit = ui.get_save_32bit_bmp();
-        
-        let mut paths_to_process = Vec::new();
-        if path_str.is_empty() {
-            if let Some(files) = FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "bmp"]).pick_files() {
-                paths_to_process.extend(files);
+        if let Some(ui) = ui_weak_clone.upgrade() {
+            let path_str = path.to_string();
+            if ui.get_is_processing() {
+                return;
             }
-        } else {
-            paths_to_process.extend(path_str.split('|').filter(|s| !s.is_empty()).map(PathBuf::from));
-        }
+            let save_32bit = ui.get_save_32bit_bmp();
+            
+            let mut paths_to_process = Vec::new();
+            if path_str.is_empty() {
+                if let Some(files) = FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "bmp"]).pick_files() {
+                    paths_to_process.extend(files);
+                }
+            } else {
+                paths_to_process.extend(path_str.split('|').filter(|s| !s.is_empty()).map(PathBuf::from));
+            }
 
-        if paths_to_process.is_empty() {
-            return;
-        }
+            if paths_to_process.is_empty() {
+                return;
+            }
 
-        ui.set_is_processing(true);
-        ui.set_progress(0.0);
-        
-        let ui_thread_handle = ui_weak_clone.clone();
-        let session_thread = session_clone.clone();
+            ui.set_is_processing(true);
+            ui.set_progress(0.0);
+            
+            let ui_thread_handle = ui_weak_clone.clone();
+            let session_thread = session_clone.clone();
+            let active_model_for_thread = ui.get_active_model().to_string();
         
         std::thread::spawn(move || {
+            let active_model = active_model_for_thread;
             let total = paths_to_process.len();
             for (i, p) in paths_to_process.into_iter().enumerate() {
                 let current_file_name = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
                 
                 let ui_weak_status = ui_thread_handle.clone();
+                let file_name_for_ui = current_file_name.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak_status.upgrade() {
                         ui.set_progress(i as f32 / total as f32);
-                        ui.set_status_text(format!("Processing {}/{} : {}", i + 1, total, current_file_name).into());
+                        ui.set_status_text(format!("Processing {}/{} : {}", i + 1, total, file_name_for_ui).into());
                     }
                 });
 
                 let ui_weak_error = ui_thread_handle.clone();
-                let res = match &session_thread {
-                    Some(s) => process_single_image(&p, s, save_32bit),
-                    None => {
+                let res = {
+                    let mut session_guard = session_thread.lock().unwrap();
+                    if let Some(sess) = &mut *session_guard {
+                        process_single_image(&p, sess, &active_model, save_32bit)
+                    } else {
                         let _ = slint::invoke_from_event_loop(move || {
                             if let Some(ui) = ui_weak_error.upgrade() {
                                 ui.set_status_text("Error: Model not loaded".into());
@@ -178,6 +249,10 @@ fn main() -> Result<(), slint::PlatformError> {
                         Err("Model not loaded".to_string())
                     }
                 };
+                
+                if let Err(ref e) = res {
+                    eprintln!("Error processing {}: {}", current_file_name, e);
+                }
                 
                 let out_path_opt = res.ok();
                 let ui_weak_preview = ui_thread_handle.clone();
@@ -193,16 +268,17 @@ fn main() -> Result<(), slint::PlatformError> {
                 });
             }
 
-            let ui_weak = ui_thread_handle.clone();
+            let ui_weak_final = ui_thread_handle.clone();
             let _ = slint::invoke_from_event_loop(move || {
-                if let Some(ui) = ui_weak.upgrade() {
+                if let Some(ui) = ui_weak_final.upgrade() {
                     ui.set_progress(1.0);
                     ui.set_is_processing(false);
                     ui.set_status_text(format!("Completed processing {} file(s).", total).into());
                 }
             });
         });
-    });
+    }
+});
 
     #[cfg(target_os = "windows")]
     {
@@ -252,51 +328,101 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
     }
-
     println!("이벤트 루프 시작");
     ui.run()
 }
 
-fn process_single_image(path: &Path, session: &Arc<std::sync::Mutex<Session>>, save_32bit: bool) -> Result<PathBuf, String> {
+enum ModelFlavor {
+    Rmbg,
+    Ben2,
+}
+
+fn detect_flavor(model_path: &str) -> ModelFlavor {
+    let lower = model_path.to_lowercase();
+    if lower.contains("ben2") {
+        println!("Detected BEN2 flavor for model: {}", model_path);
+        ModelFlavor::Ben2
+    } else {
+        println!("Detected RMBG flavor for model: {}", model_path);
+        ModelFlavor::Rmbg
+    }
+}
+
+fn process_single_image(path: &Path, session: &mut Session, model_name: &str, save_32bit: bool) -> Result<PathBuf, String> {
     // 1. Load image
     let img = image::open(path).map_err(|e| format!("Error loading image: {}", e))?;
 
     let (width, height) = img.dimensions();
+    println!("Processing image: {}x{}", width, height);
     
-    // 2. Preprocess: Resize to 1024x1024, Normalize
-    let mean = [0.485, 0.456, 0.406];
-    let std_dev = [0.229, 0.224, 0.225];
-
+    let flavor = detect_flavor(model_name);
     let resized = img.resize_exact(1024, 1024, FilterType::Triangle);
     let mut input_tensor = Array4::<f32>::zeros((1, 3, 1024, 1024));
-    for (x, y, pixel) in resized.to_rgb8().enumerate_pixels() {
-        // RMBG input is RGB (BCHW)
-        input_tensor[[0, 0, y as usize, x as usize]] = (pixel[0] as f32 / 255.0 - mean[0]) / std_dev[0];
-        input_tensor[[0, 1, y as usize, x as usize]] = (pixel[1] as f32 / 255.0 - mean[1]) / std_dev[1];
-        input_tensor[[0, 2, y as usize, x as usize]] = (pixel[2] as f32 / 255.0 - mean[2]) / std_dev[2];
+    
+    match flavor {
+        ModelFlavor::Rmbg => {
+            let mean = [0.485, 0.456, 0.406];
+            let std_dev = [0.229, 0.224, 0.225];
+            for (x, y, pixel) in resized.to_rgb8().enumerate_pixels() {
+                input_tensor[[0, 0, y as usize, x as usize]] = (pixel[0] as f32 / 255.0 - mean[0]) / std_dev[0];
+                input_tensor[[0, 1, y as usize, x as usize]] = (pixel[1] as f32 / 255.0 - mean[1]) / std_dev[1];
+                input_tensor[[0, 2, y as usize, x as usize]] = (pixel[2] as f32 / 255.0 - mean[2]) / std_dev[2];
+            }
+        }
+        ModelFlavor::Ben2 => {
+            for (x, y, pixel) in resized.to_rgb8().enumerate_pixels() {
+                input_tensor[[0, 0, y as usize, x as usize]] = pixel[0] as f32 / 255.0;
+                input_tensor[[0, 1, y as usize, x as usize]] = pixel[1] as f32 / 255.0;
+                input_tensor[[0, 2, y as usize, x as usize]] = pixel[2] as f32 / 255.0;
+            }
+        }
     }
 
     // 3. Inference
     let input_vec = input_tensor.into_raw_vec();
-    let input_value = ort::value::Tensor::from_array((vec![1_i64, 3_i64, 1024_i64, 1024_i64], input_vec)).unwrap();
-    let mut session_guard = session.lock().unwrap();
-    let outputs = session_guard.run(ort::inputs![input_value]).map_err(|e| format!("Inference Error: {}", e))?;
+    let input_shape = vec![1_i64, 3_i64, 1024_i64, 1024_i64];
+    let input_value = ort::value::Tensor::from_array((input_shape, input_vec)).unwrap();
+    
+    let input_name = session.inputs()[0].name().to_string();
+
+    let outputs = session.run(ort::inputs![input_name => input_value]).map_err(|e| {
+        format!("Inference Error: {}", e)
+    })?;
 
     // 4. Postprocess
-    let (_shape, mask_data) = outputs[0].try_extract_tensor::<f32>().map_err(|e| format!("Tensor extraction error: {}", e))?;
+    let (shape, mask_data): (Vec<usize>, Vec<f32>) = if let Ok((shape, data)) = outputs[0].try_extract_tensor::<f32>() {
+        (shape.iter().map(|&v| v as usize).collect(), data.to_vec())
+    } else {
+        let (shape, data) = outputs[0].try_extract_tensor::<f16>().map_err(|e| format!("Tensor extraction error: {}", e))?;
+        (shape.iter().map(|&v| v as usize).collect(), data.iter().map(|&v| v.to_f32()).collect())
+    };
     
+    println!("Output tensor shape: {:?}", shape);
+    
+    let (mask_h, mask_w) = if shape.len() == 4 {
+        (shape[2] as u32, shape[3] as u32)
+    } else if shape.len() == 3 {
+        (shape[1] as u32, shape[2] as u32)
+    } else if shape.len() == 2 {
+        (shape[0] as u32, shape[1] as u32)
+    } else {
+        (1024, 1024)
+    };
+
     // Min-Max Scaling
     let mut mask_min = f32::MAX;
     let mut mask_max = f32::MIN;
-    for &v in mask_data {
-        if v < mask_min { mask_min = v; }
-        if v > mask_max { mask_max = v; }
+    for &v in &mask_data {
+        if v.is_finite() {
+            if v < mask_min { mask_min = v; }
+            if v > mask_max { mask_max = v; }
+        }
     }
     let mask_range = mask_max - mask_min;
+    println!("Mask stats: min={}, max={}, range={}", mask_min, mask_max, mask_range);
 
-    // Output mask is (1, 1, 1024, 1024)
-    let mask_img = ImageBuffer::from_fn(1024, 1024, |x, y| {
-        let v = mask_data[(y * 1024 + x) as usize];
+    let mask_img = ImageBuffer::from_fn(mask_w, mask_h, |x, y| {
+        let v = mask_data[(y * mask_w + x) as usize];
         let normalized = if mask_range > 0.0 { (v - mask_min) / mask_range } else { 0.0 };
         let val = (normalized * 255.0).clamp(0.0, 255.0) as u8;
         Luma([val])

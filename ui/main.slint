@@ -1,4 +1,4 @@
-import { VerticalBox, Button, CheckBox, ProgressIndicator } from "std-widgets.slint";
+import { VerticalBox, Button, CheckBox, ProgressIndicator, ComboBox, HorizontalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     width: 600px;
@@ -14,41 +14,97 @@ export component MainWindow inherits Window {
     
     in property <bool> is_processing: false;
     in property <float> progress: 0.0;
+    
+    in property <[string]> model_entries: [];
+    in-out property <string> active_model: "";
+    callback model_selected(string);
 
     // A drop area to capture file drops natively, if supported by the Slint backend.
     // In many winit backends, dropping a file on the window will issue a WindowEvent.
     // We handle it in Rust.
 
     VerticalBox {
+        spacing: 12px;
+        padding: 20px;
+        alignment: stretch;
+
         Text {
             text: root.status_text;
             horizontal-alignment: center;
-            font-size: 16px;
+            font-size: 18px;
+            color: #2c3e50;
         }
 
         if (root.is_processing) : ProgressIndicator {
             progress: root.progress;
+            height: 10px;
         }
 
-        if (root.has_image) : Image {
-            source: root.preview_image;
-            width: 400px;
-            height: 400px;
-            image-fit: contain;
+        Rectangle {
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: #dee2e6;
+            clip: true;
+
+            if (root.has_image) : Image {
+                source: root.preview_image;
+                width: parent.width - 20px;
+                height: parent.height - 20px;
+                image-fit: contain;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            if (!root.has_image) : Text {
+                text: "No image loaded";
+                color: #adb5bd;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
         }
 
-        Rectangle {} // Spacer
+        HorizontalBox {
+            padding: 0px;
+            
+            CheckBox {
+                text: "Add 32bit bmp with alpha channel";
+                checked: root.save_32bit_bmp;
+                toggled => {
+                    root.save_32bit_bmp = self.checked;
+                }
+            }
 
-        CheckBox {
-            text: "Add 32bit bmp with alpha channel";
-            checked: root.save_32bit_bmp;
-            toggled => {
-                root.save_32bit_bmp = self.checked;
+            Rectangle { horizontal-stretch: 1; } // Spacer
+
+            HorizontalBox {
+                alignment: center;
+                spacing: 8px;
+                padding: 0px;
+                Text { 
+                    text: "Model:"; 
+                    font-size: 14px;
+                    vertical-alignment: center;
+                    color: #495057;
+                }
+                ComboBox {
+                    width: 230px;
+                    model: root.model_entries;
+                    current-value: root.active_model;
+                    selected(val) => {
+                        root.active_model = val;
+                        root.model_selected(val);
+                    }
+                }
             }
         }
 
         Button {
             text: "Select Image";
+            height: 45px;
+            primary: true;
             enabled: !root.is_processing;
             clicked => {
                 root.files-dropped("");
@@ -56,3 +112,4 @@ export component MainWindow inherits Window {
         }
     }
 }
+
