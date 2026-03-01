@@ -39,7 +39,7 @@ You can download the latest version from the [Releases Page](https://github.com/
 
 Download the `.onnx` files and place them in the application folder:
 
-- **RMBG-2.0**: You have to register at https://huggingface.co/briaai/RMBG-2.0/ after huggingface login, then you can download the model.
+- **RMBG-2.0**: You have to register at https://huggingface.co/briaai/RMBG-2.0/ after huggingface login, then you can download the model. (non-commercial use only)
   - [model.onnx](https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model.onnx)
   - [model_fp16.onnx](https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx)
 - **BEN2**:
@@ -85,3 +85,5 @@ cargo run --release
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Models: The ONNX models supported by this tool (RMBG-2.0, BEN2, InSPyReNet, etc.) are subject to their own respective licenses. Users are responsible for complying with the model creators' licensing terms, especially regarding non-commercial or commercial use.
