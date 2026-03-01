@@ -30,7 +30,7 @@ You can download the latest version from the [Releases Page](https://github.com/
 
 Download the `.onnx` files and place them in the application folder:
 
-- **RMBG-2.0**:
+- **RMBG-2.0**: You have to register at https://huggingface.co/briaai/RMBG-2.0/ after huggingface login, then you can download the model.
   - [model.onnx](https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model.onnx)
   - [model_fp16.onnx](https://huggingface.co/briaai/RMBG-2.0/blob/main/onnx/model_fp16.onnx)
 - **BEN2**:
