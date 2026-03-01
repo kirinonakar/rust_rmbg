@@ -2,6 +2,8 @@
 
 A high-performance image background removal tool written in Rust, featuring a modern GUI powered by [Slint](https://slint.dev/) and hardware-accelerated machine learning inference via [ONNX Runtime](https://onnxruntime.ai/).
 
+ <img src="screenshot.png" alt="screenshot1" width="50%">
+
 ## Features
 
 - **Multi-Model Support**: Automatically scans for `.onnx` files in the current directory and allows switching between them via the UI dropdown.
