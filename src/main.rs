@@ -305,7 +305,32 @@ fn main() -> Result<(), slint::PlatformError> {
                     paths_to_process.extend(files);
                 }
             } else {
-                paths_to_process.extend(path_str.split('|').filter(|s| !s.is_empty()).map(PathBuf::from));
+                let dropped_paths: Vec<PathBuf> = path_str.split('|').filter(|s| !s.is_empty()).map(PathBuf::from).collect();
+                let mut dir_queue = Vec::new();
+                for p in dropped_paths {
+                    if p.is_dir() {
+                        dir_queue.push(p);
+                    } else if p.is_file() {
+                        paths_to_process.push(p);
+                    }
+                }
+                while let Some(dir) = dir_queue.pop() {
+                    if let Ok(entries) = std::fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.is_dir() {
+                                dir_queue.push(path);
+                            } else if path.is_file() {
+                                if let Some(ext) = path.extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
+                                    if matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "bmp" | "webp" | "tif" | "tiff") {
+                                        paths_to_process.push(path);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                paths_to_process.sort();
             }
 
             if paths_to_process.is_empty() {
