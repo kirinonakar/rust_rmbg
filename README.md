@@ -7,9 +7,8 @@ A high-performance image background removal tool written in Rust, featuring a mo
 ## Features
 
 - **Multi-Model Support**: Automatically scans for `.onnx` files in the current directory and allows switching between them via the UI dropdown.
-- **BEN2 & RMBG Support**: Optimized preprocessing for different model flavors. BEN2 models are automatically detected (based on "ben2" in the filename) for correct normalization.
 - **Improved Tensor Handling**: Built-in support for both `f32` and `f16` (Half-Precision) output tensors, ensuring compatibility with a wider range of optimized models.
-- **Hardware Acceleration**: Leverages GPU acceleration (CUDA and DirectML) to perform fast local background removal.
+- **Hardware Acceleration**: Leverages GPU acceleration (DirectML) to perform fast local background removal.
 - **CPU Fallback Mode**: Built-in toggle to switch between GPU and CPU execution modes directly from the UI. Use CPU mode if you encounter Out of Memory errors or other GPU related errors during processing.
 - **Batch Processing**: Supports dragging and dropping multiple images at once, processing them sequentially with a real-time progress bar.
 - **32-bit BMP Support**: Option to export results as 32-bit BMP files with an alpha channel, ideal for legacy software compatibility.
@@ -60,10 +59,8 @@ cd rust_rmbg
 cargo build --release
 ```
 
-Once built, move your `model_fp16.onnx` model file to `target/release/` and run the executable:
-```bash
-cargo run --release
-```
+Once built, move your `*.onnx` model file to `target/release/` and run the executable:
+
 
 ## Usage
  
