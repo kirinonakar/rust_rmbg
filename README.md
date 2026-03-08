@@ -13,7 +13,7 @@ A high-performance image background removal tool written in Rust, featuring a mo
 - **CPU Fallback Mode**: Built-in toggle to switch between GPU and CPU execution modes directly from the UI. Use CPU mode if you encounter Out of Memory errors or other GPU related errors during processing.
 - **Batch Processing**: Supports dragging and dropping multiple images at once, processing them sequentially with a real-time progress bar.
 - **32-bit BMP Support**: Option to export results as 32-bit BMP files with an alpha channel, ideal for legacy software compatibility.
-- **Drag & Drop Support**: Seamlessly select images by dragging and dropping them directly onto the application window (custom OLE Drag'n'Drop hooking on Windows).
+- **Drag & Drop Support**: Seamlessly select images or folders by dragging and dropping them directly onto the application window (custom OLE Drag'n'Drop hooking on Windows).
 - **Modern GUI**: A stylish and fast user interface built entirely with Slint.
 - **Offline Processing**: Everything runs locally on your machine—no internet connection or cloud API keys required.
 
@@ -71,7 +71,7 @@ cargo run --release
 2. **Select Model**: Use the **"Model:"** dropdown to select from available `.onnx` files in the app folder.
 3. **Select Execution Mode**: Choose between **"GPU"** (default) or **"CPU"** mode using the dropdown in the top right corner. Switch to **"CPU"** if you experience Out of Memory errors.
 4. **Configure Options**: Toggle the **"Add 32bit bmp with alpha channel"** checkbox if you need BMP output in addition to PNG.
-5. **Select images**: Drag and drop one or multiple `.png`, `.jpg`, `.jpeg`, or `.bmp` files into the main window, or use the **"Select Image"** button.
+5. **Select images**: Drag and drop one or multiple `.png`, `.jpg`, `.jpeg`, `.bmp` files or folders into the main window, or use the **"Select Image"** button.
 6. **Processing**: The application will process files sequentially. A progress bar will indicate the current status and overall batch progress.
 7. **Save**: Resulting images are saved automatically in the same folder as the original files:
    - Always saves as `[filename]_rmbg.png` (with transparency).
