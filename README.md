@@ -10,6 +10,7 @@ A high-performance image background removal tool written in Rust, featuring a mo
 - **BEN2 & RMBG Support**: Optimized preprocessing for different model flavors. BEN2 models are automatically detected (based on "ben2" in the filename) for correct normalization.
 - **Improved Tensor Handling**: Built-in support for both `f32` and `f16` (Half-Precision) output tensors, ensuring compatibility with a wider range of optimized models.
 - **Hardware Acceleration**: Leverages GPU acceleration (CUDA and DirectML) to perform fast local background removal.
+- **CPU Fallback Mode**: Built-in toggle to switch between GPU and CPU execution modes directly from the UI. Use CPU mode if you encounter Out of Memory errors or other GPU related errors during processing.
 - **Batch Processing**: Supports dragging and dropping multiple images at once, processing them sequentially with a real-time progress bar.
 - **32-bit BMP Support**: Option to export results as 32-bit BMP files with an alpha channel, ideal for legacy software compatibility.
 - **Drag & Drop Support**: Seamlessly select images by dragging and dropping them directly onto the application window (custom OLE Drag'n'Drop hooking on Windows).
@@ -30,6 +31,7 @@ Before building and running the application, ensure you have the following requi
 > **Memory Usage Note:**
 > - Models larger than **1GB** require at least **16GB of system RAM**.
 > - For systems with lower specifications, it is recommended to use smaller models **under 500MB** (such as `fp16` variants) to avoid memory issues.
+> - **Out of Memory Errors:** If you encounter an "out of memory" error or other GPU related errors during processing, try switching the execution mode from "GPU" to "CPU" using the dropdown at the top right of the application.
 
 
 ### 📥 Download
@@ -64,13 +66,14 @@ cargo run --release
 ```
 
 ## Usage
-
+ 
 1. **Launch the application**: Run the `rust_rmbg` executable.
 2. **Select Model**: Use the **"Model:"** dropdown to select from available `.onnx` files in the app folder.
-3. **Configure Options**: Toggle the **"Add 32bit bmp with alpha channel"** checkbox if you need BMP output in addition to PNG.
-4. **Select images**: Drag and drop one or multiple `.png`, `.jpg`, `.jpeg`, or `.bmp` files into the main window, or use the **"Select Image"** button.
-4. **Processing**: The application will process files sequentially. A progress bar will indicate the current status and overall batch progress.
-5. **Save**: Resulting images are saved automatically in the same folder as the original files:
+3. **Select Execution Mode**: Choose between **"GPU"** (default) or **"CPU"** mode using the dropdown in the top right corner. Switch to **"CPU"** if you experience Out of Memory errors.
+4. **Configure Options**: Toggle the **"Add 32bit bmp with alpha channel"** checkbox if you need BMP output in addition to PNG.
+5. **Select images**: Drag and drop one or multiple `.png`, `.jpg`, `.jpeg`, or `.bmp` files into the main window, or use the **"Select Image"** button.
+6. **Processing**: The application will process files sequentially. A progress bar will indicate the current status and overall batch progress.
+7. **Save**: Resulting images are saved automatically in the same folder as the original files:
    - Always saves as `[filename]_rmbg.png` (with transparency).
    - If enabled, also saves as `[filename]_rmbg.bmp` (32-bit with alpha channel).
 

@@ -134,7 +134,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 .with_intra_threads(4)
                 .unwrap();
                 
-            if execution_mode_str == "GPU (Default)" {
+            if execution_mode_str == "GPU" {
                 if let Ok(b) = builder.clone().with_execution_providers([
                     ort::ep::CUDA::default().build(),
                     ort::ep::DirectML::default().build(),
@@ -190,7 +190,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     .with_intra_threads(4)
                     .unwrap();
                     
-                if execution_mode_str == "GPU (Default)" {
+                if execution_mode_str == "GPU" {
                     if let Ok(b) = builder.clone().with_execution_providers([
                         ort::ep::CUDA::default().build(),
                         ort::ep::DirectML::default().build(),
@@ -246,7 +246,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     .with_intra_threads(4)
                     .unwrap();
                     
-                if mode_str == "GPU (Default)" {
+                if mode_str == "GPU" {
                     if let Ok(b) = builder.clone().with_execution_providers([
                         ort::ep::CUDA::default().build(),
                         ort::ep::DirectML::default().build(),
