@@ -119,22 +119,35 @@ fn main() -> Result<(), slint::PlatformError> {
     
     // Load initial model if exists
     if !initial_model.is_empty() {
-        match Session::builder()
-            .unwrap()
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .unwrap()
-            .with_intra_threads(4)
-            .unwrap()
-            .commit_from_file(&initial_model)
-        {
-            Ok(s) => {
-                *current_session.lock().unwrap() = Some(s);
-                ui.set_status_text("Model loaded".into());
-            }
-            Err(e) => {
-                ui.set_status_text(format!("Failed to load model: {}", e).into());
-            }
-        }
+        let session_clone = current_session.clone();
+        let ui_weak_for_thread = ui_weak.clone();
+        let model_name_str = initial_model.to_string();
+        
+        ui.set_status_text(format!("Loading model: {}...", model_name_str).into());
+        
+        std::thread::spawn(move || {
+            let res = Session::builder()
+                .unwrap()
+                .with_optimization_level(GraphOptimizationLevel::Level3)
+                .unwrap()
+                .with_intra_threads(4)
+                .unwrap()
+                .commit_from_file(&model_name_str);
+            
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(ui) = ui_weak_for_thread.upgrade() {
+                    match res {
+                        Ok(s) => {
+                            *session_clone.lock().unwrap() = Some(s);
+                            ui.set_status_text("Model loaded".into());
+                        }
+                        Err(e) => {
+                            ui.set_status_text(format!("Failed to load model: {}", e).into());
+                        }
+                    }
+                }
+            });
+        });
     } else {
         ui.set_status_text("No .onnx models found in current directory".into());
     }
@@ -223,6 +236,9 @@ fn main() -> Result<(), slint::PlatformError> {
         std::thread::spawn(move || {
             let active_model = active_model_for_thread;
             let total = paths_to_process.len();
+            let mut oom_error_occurred = false;
+            let mut other_error_occurred = false;
+            
             for (i, p) in paths_to_process.into_iter().enumerate() {
                 let current_file_name = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
                 
@@ -252,6 +268,12 @@ fn main() -> Result<(), slint::PlatformError> {
                 
                 if let Err(ref e) = res {
                     eprintln!("Error processing {}: {}", current_file_name, e);
+                    let err_msg = e.to_lowercase();
+                    if err_msg.contains("memory") || err_msg.contains("alloc") || err_msg.contains("oom") || err_msg.contains("resource") {
+                        oom_error_occurred = true;
+                    } else {
+                        other_error_occurred = true;
+                    }
                 }
                 
                 let out_path_opt = res.ok();
@@ -266,6 +288,10 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                     }
                 });
+                
+                if oom_error_occurred {
+                    break;
+                }
             }
 
             let ui_weak_final = ui_thread_handle.clone();
@@ -273,7 +299,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Some(ui) = ui_weak_final.upgrade() {
                     ui.set_progress(1.0);
                     ui.set_is_processing(false);
-                    ui.set_status_text(format!("Completed processing {} file(s).", total).into());
+                    if oom_error_occurred {
+                        ui.set_status_text("out of memory, please use smaller model".into());
+                    } else if other_error_occurred {
+                        ui.set_status_text(format!("Completed processing {} file(s) with errors.", total).into());
+                    } else {
+                        ui.set_status_text(format!("Completed processing {} file(s).", total).into());
+                    }
                 }
             });
         });
@@ -386,7 +418,12 @@ fn process_single_image(path: &Path, session: &mut Session, model_name: &str, sa
     let input_name = session.inputs()[0].name().to_string();
 
     let outputs = session.run(ort::inputs![input_name => input_value]).map_err(|e| {
-        format!("Inference Error: {}", e)
+        let err_msg = e.to_string().to_lowercase();
+        if err_msg.contains("memory") || err_msg.contains("alloc") || err_msg.contains("oom") || err_msg.contains("resource") {
+            "out of memory, please use smaller model".to_string()
+        } else {
+            format!("Inference Error: {}", e)
+        }
     })?;
 
     // 4. Postprocess
