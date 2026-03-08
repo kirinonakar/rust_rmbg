@@ -18,6 +18,8 @@ export component MainWindow inherits Window {
     in property <[string]> model_entries: [];
     in-out property <string> active_model: "";
     callback model_selected(string);
+    in-out property <string> execution_mode: "GPU";
+    callback execution_mode_changed(string);
 
     // A drop area to capture file drops natively, if supported by the Slint backend.
     // In many winit backends, dropping a file on the window will issue a WindowEvent.
@@ -28,11 +30,30 @@ export component MainWindow inherits Window {
         padding: 20px;
         alignment: stretch;
 
-        Text {
-            text: root.status_text;
-            horizontal-alignment: center;
-            font-size: 18px;
-            color: #2c3e50;
+        HorizontalBox {
+            padding: 0px;
+            
+            Rectangle { horizontal-stretch: 1; }
+            
+            Text {
+                text: root.status_text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                font-size: 18px;
+                color: #2c3e50;
+            }
+            
+            Rectangle { horizontal-stretch: 1; }
+            
+            ComboBox {
+                width: 80px;
+                model: ["GPU", "CPU"];
+                current-value: root.execution_mode;
+                selected(val) => {
+                    root.execution_mode = val;
+                    root.execution_mode_changed(val);
+                }
+            }
         }
 
         if (root.is_processing) : ProgressIndicator {

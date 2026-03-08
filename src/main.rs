@@ -85,13 +85,9 @@ fn main() -> Result<(), slint::PlatformError> {
     // 전역 핸들 설정
     let _ = APP_WINDOW_HANDLE.set(ui_weak.clone());
 
-    // Initialize ORT with GPU support
+    // Initialize ORT
     let _ = ort::init()
         .with_name("rust_rmbg")
-        .with_execution_providers([
-            ort::ep::CUDA::default().build(),
-            ort::ep::DirectML::default().build(),
-        ])
         .commit();
 
     // Find onnx models in current directory
@@ -116,25 +112,41 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.set_active_model(initial_model.clone().into());
 
     let current_session = Arc::new(std::sync::Mutex::new(None::<Session>));
+    let is_loading = Arc::new(std::sync::Mutex::new(false));
     
     // Load initial model if exists
     if !initial_model.is_empty() {
         let session_clone = current_session.clone();
+        let is_loading_clone = is_loading.clone();
         let ui_weak_for_thread = ui_weak.clone();
         let model_name_str = initial_model.to_string();
         
         ui.set_status_text(format!("Loading model: {}...", model_name_str).into());
+        *is_loading_clone.lock().unwrap() = true;
+        
+        let execution_mode_str = ui.get_execution_mode().to_string();
         
         std::thread::spawn(move || {
-            let res = Session::builder()
+            let mut builder = Session::builder()
                 .unwrap()
                 .with_optimization_level(GraphOptimizationLevel::Level3)
                 .unwrap()
                 .with_intra_threads(4)
-                .unwrap()
-                .commit_from_file(&model_name_str);
+                .unwrap();
+                
+            if execution_mode_str == "GPU (Default)" {
+                if let Ok(b) = builder.clone().with_execution_providers([
+                    ort::ep::CUDA::default().build(),
+                    ort::ep::DirectML::default().build(),
+                ]) {
+                    builder = b;
+                }
+            }
+                
+            let res = builder.commit_from_file(&model_name_str);
             
             let _ = slint::invoke_from_event_loop(move || {
+                *is_loading_clone.lock().unwrap() = false;
                 if let Some(ui) = ui_weak_for_thread.upgrade() {
                     match res {
                         Ok(s) => {
@@ -155,24 +167,42 @@ fn main() -> Result<(), slint::PlatformError> {
     // Handle model selection changes
     let ui_weak_model = ui_weak.clone();
     let session_model = current_session.clone();
+    let is_loading_model = is_loading.clone();
     ui.on_model_selected(move |model_name| {
         if let Some(ui) = ui_weak_model.upgrade() {
             let session_clone = session_model.clone();
+            let is_loading_clone = is_loading_model.clone();
             let ui_weak_for_thread = ui_weak_model.clone();
             let model_name_str = model_name.to_string();
             
+            let execution_mode_str = ui.get_execution_mode().to_string();
             ui.set_status_text(format!("Loading model: {}...", model_name_str).into());
+            *is_loading_clone.lock().unwrap() = true;
             
             std::thread::spawn(move || {
-                let res = Session::builder()
+                // 이전 모델 세션을 먼저 해제하여 메모리(VRAM)에서 깨끗이 비웁니다.
+                *session_clone.lock().unwrap() = None;
+
+                let mut builder = Session::builder()
                     .unwrap()
                     .with_optimization_level(GraphOptimizationLevel::Level3)
                     .unwrap()
                     .with_intra_threads(4)
-                    .unwrap()
-                    .commit_from_file(&model_name_str);
+                    .unwrap();
+                    
+                if execution_mode_str == "GPU (Default)" {
+                    if let Ok(b) = builder.clone().with_execution_providers([
+                        ort::ep::CUDA::default().build(),
+                        ort::ep::DirectML::default().build(),
+                    ]) {
+                        builder = b;
+                    }
+                }
+
+                let res = builder.commit_from_file(&model_name_str);
                 
                 let _ = slint::invoke_from_event_loop(move || {
+                    *is_loading_clone.lock().unwrap() = false;
                     if let Some(ui) = ui_weak_for_thread.upgrade() {
                         match res {
                             Ok(s) => {
@@ -181,6 +211,62 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                             Err(e) => {
                                 ui.set_status_text(format!("Error loading {}: {}", model_name_str, e).into());
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    });
+
+    let ui_weak_exec = ui_weak.clone();
+    let session_exec = current_session.clone();
+    let is_loading_exec = is_loading.clone();
+    ui.on_execution_mode_changed(move |mode| {
+        if let Some(ui) = ui_weak_exec.upgrade() {
+            let session_clone = session_exec.clone();
+            let is_loading_clone = is_loading_exec.clone();
+            let ui_weak_for_thread = ui_weak_exec.clone();
+            
+            let model_name_str = ui.get_active_model().to_string();
+            let mode_str = mode.to_string();
+            
+            if model_name_str.is_empty() { return; }
+            
+            ui.set_status_text(format!("Switching to {} mode...", mode_str).into());
+            *is_loading_clone.lock().unwrap() = true;
+            
+            std::thread::spawn(move || {
+                *session_clone.lock().unwrap() = None;
+                
+                let mut builder = Session::builder()
+                    .unwrap()
+                    .with_optimization_level(GraphOptimizationLevel::Level3)
+                    .unwrap()
+                    .with_intra_threads(4)
+                    .unwrap();
+                    
+                if mode_str == "GPU (Default)" {
+                    if let Ok(b) = builder.clone().with_execution_providers([
+                        ort::ep::CUDA::default().build(),
+                        ort::ep::DirectML::default().build(),
+                    ]) {
+                        builder = b;
+                    }
+                }
+                
+                let res = builder.commit_from_file(&model_name_str);
+                
+                let _ = slint::invoke_from_event_loop(move || {
+                    *is_loading_clone.lock().unwrap() = false;
+                    if let Some(ui) = ui_weak_for_thread.upgrade() {
+                        match res {
+                            Ok(s) => {
+                                *session_clone.lock().unwrap() = Some(s);
+                                ui.set_status_text(format!("Model {} loaded in {} mode", model_name_str, mode_str).into());
+                            }
+                            Err(e) => {
+                                ui.set_status_text(format!("Error switching {}: {}", model_name_str, e).into());
                             }
                         }
                     }
@@ -231,6 +317,7 @@ fn main() -> Result<(), slint::PlatformError> {
             
             let ui_thread_handle = ui_weak_clone.clone();
             let session_thread = session_clone.clone();
+            let is_loading_thread = is_loading.clone();
             let active_model_for_thread = ui.get_active_model().to_string();
         
         std::thread::spawn(move || {
@@ -253,6 +340,15 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 let ui_weak_error = ui_thread_handle.clone();
                 let res = {
+                    while *is_loading_thread.lock().unwrap() {
+                        let ui_weak_wait = ui_thread_handle.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak_wait.upgrade() {
+                                ui.set_status_text("Waiting for model to finish loading...".into());
+                            }
+                        });
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    }
                     let mut session_guard = session_thread.lock().unwrap();
                     if let Some(sess) = &mut *session_guard {
                         process_single_image(&p, sess, &active_model, save_32bit)
@@ -302,7 +398,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     if oom_error_occurred {
                         ui.set_status_text("out of memory, please use smaller model".into());
                     } else if other_error_occurred {
-                        ui.set_status_text(format!("Completed processing {} file(s) with errors.", total).into());
+                        ui.set_status_text("out of memory, please use smaller model".into());
                     } else {
                         ui.set_status_text(format!("Completed processing {} file(s).", total).into());
                     }
@@ -427,7 +523,7 @@ fn process_single_image(path: &Path, session: &mut Session, model_name: &str, sa
     })?;
 
     // 4. Postprocess
-    let (shape, mask_data): (Vec<usize>, Vec<f32>) = if let Ok((shape, data)) = outputs[0].try_extract_tensor::<f32>() {
+    let (shape, mut mask_data): (Vec<usize>, Vec<f32>) = if let Ok((shape, data)) = outputs[0].try_extract_tensor::<f32>() {
         (shape.iter().map(|&v| v as usize).collect(), data.to_vec())
     } else {
         let (shape, data) = outputs[0].try_extract_tensor::<f16>().map_err(|e| format!("Tensor extraction error: {}", e))?;
@@ -435,33 +531,53 @@ fn process_single_image(path: &Path, session: &mut Session, model_name: &str, sa
     };
     
     println!("Output tensor shape: {:?}", shape);
-    
-    let (mask_h, mask_w) = if shape.len() == 4 {
-        (shape[2] as u32, shape[3] as u32)
-    } else if shape.len() == 3 {
-        (shape[1] as u32, shape[2] as u32)
-    } else if shape.len() == 2 {
-        (shape[0] as u32, shape[1] as u32)
+
+    let mut raw_min = f32::MAX;
+    let mut raw_max = f32::MIN;
+    for &v in &mask_data {
+        if v.is_finite() {
+            if v < raw_min { raw_min = v; }
+            if v > raw_max { raw_max = v; }
+        }
+    }
+    println!("Raw Mask stats: min={}, max={}", raw_min, raw_max);
+
+    // 텐서 값이 Logit(- 범위 포함)인지, 아니면 이미 [0, 1] 확률이나 [0, 255] 픽셀값인지 감지합니다.
+    if raw_min < -0.1 {
+        println!("Output detected as Logits. Applying Math Sigmoid...");
+        for v in &mut mask_data {
+            *v = 1.0 / (1.0 + (-*v).exp());
+        }
+    } else if raw_max > 2.0 {
+        // [0, 255] 형태로 스케일된 값일 경우. 이 때는 단순히 최대 범위로 선형 Min-Max 보간.
+        println!("Output detected as pre-scaled values [> 2.0]. Normalizing to [0, 1]...");
+        let range = if raw_max > raw_min { raw_max - raw_min } else { 1.0 };
+        for v in &mut mask_data {
+            *v = (*v - raw_min) / range;
+        }
+    }
+
+    // 형태에서 마스크의 가로, 세로 크기를 안전하게 추출 (주로 마지막 2개 차원)
+    let mut dims: Vec<u32> = shape.iter().filter(|&&d| d > 1).map(|&d| d as u32).collect();
+    let (mask_h, mask_w) = if dims.len() >= 2 {
+        let w = dims.pop().unwrap();
+        let h = dims.pop().unwrap();
+        (h, w)
+    } else if dims.len() == 1 {
+        let s = dims[0];
+        (s, s)
     } else {
         (1024, 1024)
     };
 
-    // Min-Max Scaling
-    let mut mask_min = f32::MAX;
-    let mut mask_max = f32::MIN;
-    for &v in &mask_data {
-        if v.is_finite() {
-            if v < mask_min { mask_min = v; }
-            if v > mask_max { mask_max = v; }
-        }
-    }
-    let mask_range = mask_max - mask_min;
-    println!("Mask stats: min={}, max={}, range={}", mask_min, mask_max, mask_range);
-
     let mask_img = ImageBuffer::from_fn(mask_w, mask_h, |x, y| {
+        // 단일 채널인 경우 그대로 쓰고 멀티 채널이면 마지막 채널에 접근하게 할 수 있지만 
+        // 일반적으로 0번째 채널이 주요 마스크입니다.
         let v = mask_data[(y * mask_w + x) as usize];
-        let normalized = if mask_range > 0.0 { (v - mask_min) / mask_range } else { 0.0 };
-        let val = (normalized * 255.0).clamp(0.0, 255.0) as u8;
+        
+        // 주의: 여기서 전체 이미지에 대해 다시 동적 Min-Max Scaling 을 하면 안 됩니다!
+        // 이미 확률 [0, 1] 로 변환되었으므로 그대로 [0, 255] 로 변환하여 알파값의 손실을 방지합니다.
+        let val = (v * 255.0).clamp(0.0, 255.0) as u8;
         Luma([val])
     });
 
