@@ -421,9 +421,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_progress(1.0);
                     ui.set_is_processing(false);
                     if oom_error_occurred {
-                        ui.set_status_text("out of memory, please use smaller model".into());
+                        ui.set_status_text("Out of memory, please use smaller model or GPU mode".into());
                     } else if other_error_occurred {
-                        ui.set_status_text("out of memory, please use smaller model".into());
+                        ui.set_status_text("Some files failed to process. Check logs for details.".into());
                     } else {
                         ui.set_status_text(format!("Completed processing {} file(s).", total).into());
                     }
@@ -502,8 +502,13 @@ fn detect_flavor(model_path: &str) -> ModelFlavor {
 }
 
 fn process_single_image(path: &Path, session: &mut Session, model_name: &str, save_32bit: bool) -> Result<PathBuf, String> {
-    // 1. Load image
-    let img = image::open(path).map_err(|e| format!("Error loading image: {}", e))?;
+    // 1. Load image (Guess format by content, not extension)
+    let img = image::ImageReader::open(path)
+        .map_err(|e| format!("Error opening file: {}", e))?
+        .with_guessed_format()
+        .map_err(|e| format!("Error guessing format: {}", e))?
+        .decode()
+        .map_err(|e| format!("Error decoding image: {}", e))?;
 
     let (width, height) = img.dimensions();
     println!("Processing image: {}x{}", width, height);
