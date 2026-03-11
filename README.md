@@ -48,6 +48,11 @@ Download the `.onnx` files and place them in the application folder:
 - **InSPyReNet (Plus Ultra)**:
   - [model.onnx](https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX/blob/main/onnx/model.onnx)
   - [model_fp16.onnx](https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX/blob/main/onnx/model_fp16.onnx)
+- **BiRefNet**:
+  - [model.onnx](https://huggingface.co/onnx-community/BiRefNet-ONNX/blob/main/onnx/model.onnx)
+  - [model_fp16.onnx](https://huggingface.co/onnx-community/BiRefNet-ONNX/blob/main/onnx/model_fp16.onnx)
+- **Trendyol**:
+  - [model.onnx](https://huggingface.co/Trendyol/background-removal/blob/main/model.onnx)
 
 ## Installation & Build
 
